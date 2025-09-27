@@ -1,0 +1,3 @@
+/mnt/c/Users/limbr/OneDrive/Документы/code/sibGuti/oop/lab7/CMakeFiles/main.dir
+/mnt/c/Users/limbr/OneDrive/Документы/code/sibGuti/oop/lab7/CMakeFiles/edit_cache.dir
+/mnt/c/Users/limbr/OneDrive/Документы/code/sibGuti/oop/lab7/CMakeFiles/rebuild_cache.dir
