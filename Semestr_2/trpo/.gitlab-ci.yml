@@ -1,0 +1,38 @@
+default:
+   image: registry.csc.sibsutis.ru/trpo/ci
+
+.tests-script:
+   script:
+      - echo "Testing..."
+      - ctest
+      - echo "Tests is fine."
+.build-script:
+   script:
+      - echo "Compiling the code..."
+      - mkdir bin
+      - cd bin
+      - cmake ..
+      - echo "Compiling is finished."
+      
+.check-codestyle:
+   script:
+      - echo "Check codestyle..."
+      - git ls-files *.cpp *.hpp | xargs clang-format -i --verbose && git diff --exit-code
+      - echo "Codestyle is fine."
+
+stages:
+   - checkstyle
+   - build
+   - tests
+
+checkstyle:
+   stage: checkstyle
+   extends: .check-codestyle
+
+build:
+   stage: build
+   extends: .build-script
+
+tests:
+   stage: tests
+   extends: .tests-script
