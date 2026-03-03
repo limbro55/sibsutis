@@ -1,0 +1,45 @@
+labels:
+  owner: ip314s22
+
+replicaCount: 1
+
+container:
+  name: ip314s22-fastapi
+  port: 5000
+
+image:
+  repository: cr.hawk.csc.sibsutis.ru/hawk-dev/ip314s22-arp-safonov
+  tag: v1
+
+resources:
+  requests:
+    memory: "128Mi"
+    cpu: "100m"
+  limits:
+    memory: "256Mi"
+    cpu: "200m"
+
+probes:
+  liveness:
+    path: /name
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /name
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 1
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  className: traefik-dev
+  host: ip314s22.hawk-dev.csc.sibsutis.ru
+  path: /
+  pathType: Prefix
+  

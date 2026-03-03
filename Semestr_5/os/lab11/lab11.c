@@ -7,6 +7,8 @@
 
 int buffer[BUFFER_SIZE];
 int count = 0;
+int head = 0;
+int tail = 0;
 
 pthread_mutex_t mutex;
 sem_t empty;
@@ -20,8 +22,11 @@ void* producer(void* arg) {
         sem_wait(&empty);
         pthread_mutex_lock(&mutex);
 
-        buffer[count++] = item;
-        printf("[PROD] put %d (count=%d)\n", item, count);
+        buffer[tail] = item;
+        tail = (tail + 1) % BUFFER_SIZE;
+        count++;
+        printf("[PROD] put %d (head=%d, tail=%d, count=%d)\n", 
+               item, head, tail, count);
 
         pthread_mutex_unlock(&mutex);
         sem_post(&full);
@@ -35,8 +40,11 @@ void* consumer(void* arg) {
         sem_wait(&full);
         pthread_mutex_lock(&mutex);
 
-        int item = buffer[--count];
-        printf("      [CONS] got %d (count=%d)\n", item, count);
+        int item = buffer[head];
+        head = (head + 1) % BUFFER_SIZE;
+        count--;
+        printf("      [CONS] got %d (head=%d, tail=%d, count=%d)\n", 
+               item, head, tail, count);
 
         pthread_mutex_unlock(&mutex);
         sem_post(&empty);

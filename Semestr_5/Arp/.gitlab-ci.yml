@@ -1,0 +1,93 @@
+stages:
+  - build
+  - diff
+  - deploy
+
+variables:
+  APP_NAME: "ip314s22"
+  NAMESPACE: "ip314"
+  CHART_DIR: "./chart"
+
+build-job:
+  stage: build
+  image: docker:cli
+  services:
+    - docker:dind
+  before_script:
+    - echo "$HAWK_REGISTRY_PASSWORD" | docker login -u $HAWK_REGISTRY_USER --password-stdin $HAWK_REGISTRY
+    - docker context create ci
+    - |
+      docker buildx create --name multiarch --use ci
+      docker buildx inspect --bootstrap
+  script:
+    - IMAGE_TAG=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+    - >
+      docker buildx build
+      --platform linux/arm64,linux/amd64
+      -t $HAWK_REGISTRY_IMAGE:$IMAGE_TAG
+      -t $HAWK_REGISTRY_IMAGE:latest
+      --push .
+    - echo "FULL_IMAGE=${HAWK_REGISTRY_IMAGE}:${IMAGE_TAG}" > build.env
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: on_success
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+  artifacts:
+    reports:
+      dotenv: build.env
+
+diff-job:
+  stage: diff
+  image: registry.csc.sibsutis.ru/csc-public/internal-container-images/k8s-tools:latest
+  needs: ["build-job"]
+  resource_group: helm-ip314s22
+  variables:
+    DIFF_FILE: "helm-diff.txt"
+  before_script:
+    - mkdir -p ~/.kube/
+    - cp "$KUBECONFIG" ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - echo "Kubeconfig создан"
+  script:
+    - >
+      helm diff upgrade $APP_NAME $CHART_DIR
+      --namespace $NAMESPACE
+      --set image.repository=$HAWK_REGISTRY_IMAGE
+      --set image.tag=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA} 
+      > $DIFF_FILE || true
+    - echo "==== Diff для Helm релиза ===="
+    - cat $DIFF_FILE || true
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+  artifacts:
+    paths:
+      - $DIFF_FILE
+    when: always
+
+deploy-to-hawk:
+  stage: deploy
+  image: registry.csc.sibsutis.ru/csc-public/internal-container-images/k8s-tools:latest
+  needs: ["build-job"]
+  resource_group: helm-ip314s22
+  before_script:
+    - mkdir -p ~/.kube/
+    - cp "$KUBECONFIG" ~/.kube/config
+    - chmod 600 ~/.kube/config
+    - echo "Kubeconfig создан"
+  script:
+    - >
+      helm upgrade --install $APP_NAME $CHART_DIR
+      --namespace $NAMESPACE
+      --set image.repository=$HAWK_REGISTRY_IMAGE
+      --set image.tag=${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+      --atomic
+    - kubectl get all -n $NAMESPACE | grep s22 || echo "Ресурсы s22 не найдены"
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: manual
+    - if: $CI_COMMIT_BRANCH
+      when: manual
